@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Anidrx</title>
+    <meta name="description" content="Busque animes por título, gênero e tipo. Veja capas, notas, onde assistir e títulos parecidos." />
+    <meta name="theme-color" content="#e63e6d" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&family=Cormorant+Garamond:wght@700&family=Creepster&family=DM+Sans:wght@400;500;700&family=Bangers&family=Comfortaa:wght@700&family=Fraunces:wght@700&family=Mountains+of+Christmas:wght@700&family=Orbitron:wght@800&family=Playfair+Display:wght@800&family=Quicksand:wght@700&family=Shippori+Mincho:wght@700&family=Space+Grotesk:wght@700&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet" />
+    <script>
+      try {
+        var t = localStorage.getItem("anidrx:theme");
+        if (["light", "dark", "winter", "halloween", "autumn", "spring", "matsuri", "xmas", "newyear", "cyber", "galaxy", "ocean", "manga"].indexOf(t) < 0) t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
