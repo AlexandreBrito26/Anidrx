@@ -20,7 +20,7 @@ function mockSearch(data: Anime[] = []) {
 }
 
 function lastParams() {
-  return new URL(fetchMock.mock.calls.at(-1)![0] as string).searchParams;
+  return new URL(fetchMock.mock.calls.at(-1)![0] as string, "http://localhost").searchParams;
 }
 
 function renderHome(path = "/") {

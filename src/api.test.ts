@@ -13,7 +13,7 @@ function ok() {
 }
 
 function lastParams() {
-  const url = new URL(fetchMock.mock.calls.at(-1)![0] as string);
+  const url = new URL(fetchMock.mock.calls.at(-1)![0] as string, "http://localhost");
   return { path: url.pathname, params: url.searchParams };
 }
 
@@ -27,7 +27,7 @@ describe("fetchAnime", () => {
     await fetchAnime({ query: "frieren", type: "tv", genre: "10" }, 2, signal);
     const { path, params } = lastParams();
 
-    expect(path).toBe("/v4/anime");
+    expect(path).toBe("/api/jikan/v4/anime");
     expect(params.get("q")).toBe("frieren");
     expect(params.get("type")).toBe("tv");
     expect(params.get("genres")).toBe("10");
@@ -68,11 +68,36 @@ describe("fetchAnime", () => {
     ).rejects.toThrow(/Muitas buscas/);
   });
 
-  it("avisa quando a rede falha", async () => {
+  it("avisa que está sem internet quando o navegador está offline", async () => {
     fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
     await expect(
       fetchAnime({ query: "x", type: "", genre: "" }, 1, signal)
     ).rejects.toThrow(/Sem conexão/);
+    vi.restoreAllMocks();
+  });
+
+  it("culpa o servidor (não a internet) quando está online e a rede falha", async () => {
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+    await expect(
+      fetchAnime({ query: "x", type: "", genre: "" }, 1, signal)
+    ).rejects.toThrow(/servidor de animes/);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("tenta de novo e se recupera de um erro passageiro", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: false, status: 503 })
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce(ok());
+    await expect(fetchAnime({ query: "x", type: "", genre: "" }, 1, signal)).resolves.toBeDefined();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("não repete em 404", async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 404 });
+    await expect(fetchAnimeById("0", signal)).rejects.toThrow("Anime não encontrado.");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("usa uma mensagem genérica para outros erros", async () => {
@@ -93,7 +118,7 @@ describe("fetchAnimeById e fetchRecommendations", () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ data: { mal_id: 52991 } }) });
     const anime = await fetchAnimeById("52991", signal);
 
-    expect(lastParams().path).toBe("/v4/anime/52991");
+    expect(lastParams().path).toBe("/api/jikan/v4/anime/52991");
     expect(anime.mal_id).toBe(52991);
   });
 
@@ -101,7 +126,7 @@ describe("fetchAnimeById e fetchRecommendations", () => {
     fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => ({ data: [{ votes: 3 }] }) });
     const recs = await fetchRecommendations("52991", signal);
 
-    expect(lastParams().path).toBe("/v4/anime/52991/recommendations");
+    expect(lastParams().path).toBe("/api/jikan/v4/anime/52991/recommendations");
     expect(recs).toHaveLength(1);
   });
 
@@ -113,7 +138,7 @@ describe("fetchAnimeById e fetchRecommendations", () => {
     });
     const links = await fetchStreaming("52991", signal);
 
-    expect(lastParams().path).toBe("/v4/anime/52991/streaming");
+    expect(lastParams().path).toBe("/api/jikan/v4/anime/52991/streaming");
     expect(links[0].name).toBe("Crunchyroll");
   });
 
@@ -125,7 +150,7 @@ describe("fetchAnimeById e fetchRecommendations", () => {
     });
     const page = await fetchEpisodes("52991", 2, signal);
 
-    expect(lastParams().path).toBe("/v4/anime/52991/episodes");
+    expect(lastParams().path).toBe("/api/jikan/v4/anime/52991/episodes");
     expect(lastParams().params.get("page")).toBe("2");
     expect(page.pagination.has_next_page).toBe(true);
   });

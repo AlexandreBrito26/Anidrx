@@ -30,10 +30,11 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         // Qualquer rota (ex.: /anime/52991) abre o app mesmo offline.
         navigateFallback: "/index.html",
+        navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
             // Buscas e detalhes já vistos continuam disponíveis offline.
-            urlPattern: ({ url }) => url.hostname === "api.jikan.moe",
+            urlPattern: ({ url }) => url.pathname.startsWith("/api/jikan/"),
             handler: "StaleWhileRevalidate",
             options: {
               cacheName: "jikan-api",
@@ -69,6 +70,16 @@ export default defineConfig(({ mode }) => ({
       },
     }),
   ],
+  // Em desenvolvimento, imita o proxy da Vercel.
+  server: {
+    proxy: {
+      "/api/jikan": {
+        target: "https://api.jikan.moe",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/jikan/, ""),
+      },
+    },
+  },
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
