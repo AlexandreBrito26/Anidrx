@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { aniPage, gqlOk, lastBody } from "../test/anilist";
 import { makeAnime } from "../test/fixtures";
 import type { Anime } from "../types";
 import Home from "./Home";
@@ -9,19 +10,10 @@ import Home from "./Home";
 const fetchMock = vi.fn();
 
 function mockSearch(data: Anime[] = []) {
-  fetchMock.mockImplementation(async () => ({
-    ok: true,
-    status: 200,
-    json: async () => ({
-      data,
-      pagination: { current_page: 1, has_next_page: false, items: { total: data.length } },
-    }),
-  }));
+  fetchMock.mockImplementation(async () => gqlOk(aniPage(data)));
 }
 
-function lastParams() {
-  return new URL(fetchMock.mock.calls.at(-1)![0] as string, "http://localhost").searchParams;
-}
+const lastVars = () => lastBody(fetchMock).variables;
 
 function renderHome(path = "/") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -52,7 +44,7 @@ describe("Home", () => {
     expect(await screen.findByText("Frieren")).toBeInTheDocument();
     expect(screen.getByText("Naruto")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Mais populares agora" })).toBeInTheDocument();
-    expect(lastParams().get("order_by")).toBe("popularity");
+    expect(lastVars().sort).toEqual(["POPULARITY_DESC"]);
   });
 
   it("ignora animes repetidos na mesma página", async () => {
@@ -69,7 +61,7 @@ describe("Home", () => {
 
     fireEvent.change(screen.getByLabelText("Buscar anime"), { target: { value: "naruto" } });
 
-    await waitFor(() => expect(lastParams().get("q")).toBe("naruto"), { timeout: 2000 });
+    await waitFor(() => expect(lastVars().search).toBe("naruto"), { timeout: 2000 });
     expect(await screen.findByRole("heading", { name: "Resultados para “naruto”" })).toBeInTheDocument();
   });
 
@@ -82,7 +74,7 @@ describe("Home", () => {
     expect(chip).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(chip);
 
-    await waitFor(() => expect(lastParams().get("genres")).toBe("10"));
+    await waitFor(() => expect(lastVars().genre).toEqual(["Fantasy"]));
     expect(screen.getByRole("button", { name: "Fantasia" })).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -93,8 +85,7 @@ describe("Home", () => {
 
     fireEvent.change(screen.getByLabelText("Ordenar por"), { target: { value: "score" } });
 
-    await waitFor(() => expect(lastParams().get("order_by")).toBe("score"));
-    expect(lastParams().get("sort")).toBe("desc");
+    await waitFor(() => expect(lastVars().sort).toEqual(["SCORE_DESC"]));
   });
 
   it("lê busca e filtros da URL ao abrir", async () => {
@@ -104,8 +95,8 @@ describe("Home", () => {
     expect(screen.getByLabelText("Buscar anime")).toHaveValue("naruto");
     expect(screen.getByRole("button", { name: "Ação" })).toHaveAttribute("aria-pressed", "true");
     await screen.findByText("Naruto");
-    expect(lastParams().get("q")).toBe("naruto");
-    expect(lastParams().get("genres")).toBe("1");
+    expect(lastVars().search).toBe("naruto");
+    expect(lastVars().genre).toEqual(["Action"]);
   });
 
   it("sugere buscas quando nada é encontrado", async () => {

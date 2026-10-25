@@ -166,7 +166,7 @@ export default function AnimePage() {
               {data.trailer?.url && (
                 <a className="btn" href={data.trailer.url} target="_blank" rel="noreferrer">Ver trailer</a>
               )}
-              <a className="btn" href={data.url} target="_blank" rel="noreferrer">Abrir no MyAnimeList</a>
+              <a className="btn" href={data.url} target="_blank" rel="noreferrer">Abrir na AniList</a>
             </div>
 
             {streams.length > 0 && (

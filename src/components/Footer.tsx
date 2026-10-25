@@ -15,8 +15,7 @@ export default function Footer() {
         </Link>
         <p className="footer__text">
           Dados de{" "}
-          <a href="https://jikan.moe" target="_blank" rel="noreferrer">Jikan</a> e{" "}
-          <a href="https://myanimelist.net" target="_blank" rel="noreferrer">MyAnimeList</a>. Capas e títulos
+          <a href="https://anilist.co" target="_blank" rel="noreferrer">AniList</a>. Capas e títulos
           pertencem aos seus respectivos donos.
         </p>
         <nav className="footer__links" aria-label="Rodapé">

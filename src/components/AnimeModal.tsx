@@ -79,7 +79,7 @@ export default function AnimeModal({ anime, favorite, onClose, onToggleFavorite 
               </a>
             )}
             <a className="btn" href={anime.url} target="_blank" rel="noreferrer">
-              Abrir no MyAnimeList
+              Abrir na AniList
             </a>
           </div>
         </div>

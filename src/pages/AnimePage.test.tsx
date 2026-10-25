@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { gqlOk, toMedia } from "../test/anilist";
 import { makeAnime } from "../test/fixtures";
 import type { Anime, Episode, Recommendation, StreamingLink } from "../types";
 import AnimePage from "./AnimePage";
@@ -21,16 +22,23 @@ function mockApi({
   episodes?: Episode[];
   status?: number;
 }) {
-  fetchMock.mockImplementation(async (url: string) => {
+  fetchMock.mockImplementation(async (_url: string, init: RequestInit) => {
     if (status !== 200) return { ok: false, status };
-    const data = url.includes("/recommendations")
-      ? recs
-      : url.includes("/streaming")
-        ? streaming
-        : url.includes("/episodes")
-          ? episodes
-          : detail;
-    return { ok: true, status: 200, json: async () => ({ data, pagination: { has_next_page: false } }) };
+    const { query } = JSON.parse(init.body as string);
+    if (query.includes("streamingEpisodes")) {
+      return gqlOk({ Media: { episodes: episodes.length, streamingEpisodes: episodes.map((e) => ({ title: e.title })) } });
+    }
+    return gqlOk({
+      Media: toMedia(detail as Anime, {
+        externalLinks: streaming.map((l) => ({ site: l.name, url: l.url, type: "STREAMING" })),
+        recommendations: {
+          nodes: recs.map((r) => ({
+            rating: r.votes,
+            mediaRecommendation: toMedia(makeAnime(r.entry.mal_id, { title: r.entry.title })),
+          })),
+        },
+      }),
+    });
   });
 }
 
@@ -120,7 +128,7 @@ describe("AnimePage", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Ver episódios" }));
     expect(await screen.findByText("O fim da jornada")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Ver episódios" })).toBeNull();
-    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("/episodes"))).toBe(true);
+    expect(fetchMock.mock.calls.some(([, init]) => String(init.body).includes("streamingEpisodes"))).toBe(true);
   });
 
   it("avisa quando não há episódios listados", async () => {
@@ -153,14 +161,7 @@ describe("AnimePage – compartilhar", () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "share", { value: undefined, configurable: true });
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
-    fetchMock.mockImplementation(async (url: string) => ({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        data: url.includes("/recommendations") || url.includes("/streaming") ? [] : makeAnime(1, { title: "Frieren" }),
-        pagination: { has_next_page: false },
-      }),
-    }));
+    fetchMock.mockResolvedValue(gqlOk({ Media: toMedia(makeAnime(1, { title: "Frieren" })) }));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
       <QueryClientProvider client={client}>

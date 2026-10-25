@@ -19,7 +19,7 @@ const pickTheme = (value: string) =>
 describe("Temas e efeitos de fundo", () => {
   beforeEach(() => {
     localStorage.clear();
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ data: [], pagination: { has_next_page: false } }) }));
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({ data: { Page: { pageInfo: { currentPage: 1, hasNextPage: false, total: 0 }, media: [] } } }) }));
   });
 
   it("cada tema tem o seu cenário e a escolha fica salva", () => {

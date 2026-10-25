@@ -1,12 +1,5 @@
 import type { Anime, EpisodesPage, Recommendation, SearchResponse, StreamingLink } from "./types";
 
-// Passa pelo proxy da Vercel (api/jikan), que consulta https://api.jikan.moe/v4.
-const BASE = "/api/jikan/v4";
-// Plano B: se o proxy não existir no deploy (a Vercel responde 404 em HTML), consulta a
-// Jikan direto; ela aceita CORS. Depois da primeira falha, o app já nem tenta o proxy.
-const DIRECT = "https://api.jikan.moe/v4";
-let proxyMissing = false;
-
 export interface Filters {
   query: string;
   type: string;
@@ -29,7 +22,7 @@ export const SORTS = [
   { value: "title", label: "A–Z" },
 ];
 
-// IDs de gênero da API Jikan
+// Os valores são ids de gênero do MyAnimeList (ficam na URL); GENRE_NAMES os traduz para a AniList.
 export const GENRES = [
   { value: "1", label: "Ação" },
   { value: "2", label: "Aventura" },
@@ -44,31 +37,173 @@ export const GENRES = [
   { value: "37", label: "Sobrenatural" },
 ];
 
-export async function fetchAnime(
-  { query, type, genre, order }: Filters,
-  page: number,
-  signal: AbortSignal
-): Promise<SearchResponse> {
-  const params = new URLSearchParams({ page: String(page), limit: "24", sfw: "true" });
-  if (query) params.set("q", query);
+// ---- AniList (GraphQL) -------------------------------------------------------------------
+// API pública e gratuita, sem chave, que aceita chamadas direto do navegador (CORS).
+const ENDPOINT = "https://graphql.anilist.co";
 
-  // Sem ordem escolhida: relevância quando há texto; popularidade quando não há.
-  const orderBy = order || (query ? "" : "popularity");
-  if (orderBy) {
-    params.set("order_by", orderBy);
-    // Popularidade e título são rankings/alfabético (crescente); o resto, do maior para o menor.
-    params.set("sort", orderBy === "popularity" || orderBy === "title" ? "asc" : "desc");
-  }
-  if (type) params.set("type", type);
-  if (genre) params.set("genres", genre);
+const GENRE_NAMES: Record<string, string> = {
+  "1": "Action",
+  "2": "Adventure",
+  "4": "Comedy",
+  "8": "Drama",
+  "10": "Fantasy",
+  "14": "Horror",
+  "22": "Romance",
+  "24": "Sci-Fi",
+  "30": "Sports",
+  "36": "Slice of Life",
+  "37": "Supernatural",
+};
 
-  const res = await request(`/anime?${params}`, signal);
-  return res.json();
+const FORMATS: Record<string, string[]> = {
+  tv: ["TV", "TV_SHORT"],
+  movie: ["MOVIE"],
+  ova: ["OVA"],
+  ona: ["ONA"],
+  special: ["SPECIAL"],
+};
+
+const FORMAT_LABEL: Record<string, string> = {
+  TV: "TV",
+  TV_SHORT: "TV",
+  MOVIE: "Movie",
+  SPECIAL: "Special",
+  OVA: "OVA",
+  ONA: "ONA",
+  MUSIC: "Music",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  FINISHED: "Finished Airing",
+  RELEASING: "Currently Airing",
+  NOT_YET_RELEASED: "Not yet aired",
+  CANCELLED: "Cancelled",
+  HIATUS: "On Hiatus",
+};
+
+const SORT: Record<string, string> = {
+  popularity: "POPULARITY_DESC",
+  score: "SCORE_DESC",
+  start_date: "START_DATE_DESC",
+  title: "TITLE_ROMAJI",
+};
+
+const MEDIA = `
+  id siteUrl format episodes status averageScore seasonYear season source duration
+  title { romaji english }
+  coverImage { large extraLarge }
+  description(asHtml: false)
+  genres
+  studios(isMain: true) { nodes { id name } }
+  trailer { id site }
+`;
+
+const PAGE_INFO = "pageInfo { currentPage hasNextPage total }";
+
+interface AniMedia {
+  id: number;
+  siteUrl: string | null;
+  format: string | null;
+  episodes: number | null;
+  status: string | null;
+  averageScore: number | null;
+  seasonYear: number | null;
+  season: string | null;
+  source: string | null;
+  duration: number | null;
+  title: { romaji: string | null; english: string | null };
+  coverImage: { large: string | null; extraLarge: string | null } | null;
+  description: string | null;
+  genres: string[] | null;
+  studios?: { nodes: { id: number; name: string }[] } | null;
+  trailer?: { id: string | null; site: string | null } | null;
+  rankings?: { rank: number; type: string; allTime: boolean }[] | null;
+  externalLinks?: { site: string; url: string | null; type: string }[] | null;
+  recommendations?: {
+    nodes: { rating: number | null; mediaRecommendation: AniMedia | null }[];
+  } | null;
 }
 
-// A Jikan oscila bastante: 429 (limite), 502/503/504 (fora do ar/lenta). Em erro de gateway
-// a resposta vem sem cabeçalho CORS, e o navegador reporta como falha de rede (TypeError).
-// Por isso tentamos de novo algumas vezes antes de desistir.
+interface AniPage {
+  pageInfo: { currentPage: number; hasNextPage: boolean; total: number };
+  media: AniMedia[];
+}
+
+const titleCase = (s: string) =>
+  s
+    .toLowerCase()
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+
+const stripHtml = (s: string) =>
+  s
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+function toAnime(m: AniMedia): Anime {
+  const large = m.coverImage?.large ?? "";
+  const cover = m.coverImage?.extraLarge ?? large;
+  const romaji = m.title.romaji ?? m.title.english ?? "";
+  const trailer =
+    m.trailer?.id && m.trailer.site === "youtube"
+      ? { url: `https://www.youtube.com/watch?v=${m.trailer.id}` }
+      : m.trailer?.id && m.trailer.site === "dailymotion"
+        ? { url: `https://www.dailymotion.com/video/${m.trailer.id}` }
+        : null;
+  const allTime = m.rankings?.find((r) => r.type === "RATED" && r.allTime);
+
+  return {
+    mal_id: m.id, // o app usa este campo como id; aqui é o id da AniList
+    url: m.siteUrl ?? `https://anilist.co/anime/${m.id}`,
+    title: romaji,
+    title_english: m.title.english,
+    images: { jpg: { image_url: large || cover, large_image_url: cover } },
+    type: m.format ? (FORMAT_LABEL[m.format] ?? titleCase(m.format)) : null,
+    episodes: m.episodes,
+    status: m.status ? (STATUS_LABEL[m.status] ?? titleCase(m.status)) : "",
+    score: m.averageScore != null ? Math.round(m.averageScore) / 10 : null,
+    year: m.seasonYear,
+    synopsis: m.description ? stripHtml(m.description) : null,
+    genres: (m.genres ?? []).map((name, i) => ({ mal_id: i, name })),
+    studios: m.studios?.nodes.map((n) => ({ mal_id: n.id, name: n.name })),
+    season: m.season ? m.season.toLowerCase() : null,
+    source: m.source ? titleCase(m.source) : null,
+    duration: m.duration ? `${m.duration} min per ep` : null,
+    rating: null,
+    rank: allTime?.rank ?? null,
+    popularity: null,
+    trailer,
+  };
+}
+
+function toPage(page: AniPage): SearchResponse {
+  return {
+    data: page.media.map(toAnime),
+    pagination: {
+      current_page: page.pageInfo.currentPage,
+      has_next_page: page.pageInfo.hasNextPage,
+      items: { total: page.pageInfo.total },
+    },
+  };
+}
+
+const REQUEST_TIMEOUT_MS = 12_000;
+
+// fetch com limite de tempo: sem isso, uma resposta que nunca chega deixa a tela carregando para sempre.
+function timedFetch(url: string, init: RequestInit, signal: AbortSignal): Promise<Response> {
+  const ctrl = new AbortController();
+  const onAbort = () => ctrl.abort();
+  const timer = setTimeout(onAbort, REQUEST_TIMEOUT_MS);
+  signal.addEventListener("abort", onAbort, { once: true });
+  return fetch(url, { ...init, signal: ctrl.signal }).finally(() => {
+    clearTimeout(timer);
+    signal.removeEventListener("abort", onAbort);
+  });
+}
+
 const RETRIES = import.meta.env.MODE === "test" ? 2 : 3;
 const RETRY_BASE_MS = import.meta.env.MODE === "test" ? 0 : 700;
 
@@ -87,42 +222,26 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-const REQUEST_TIMEOUT_MS = 12_000;
-
-// fetch com limite de tempo: sem isso, uma resposta que nunca chega deixa a tela carregando para sempre.
-function timedFetch(url: string, signal: AbortSignal): Promise<Response> {
-  const ctrl = new AbortController();
-  const onAbort = () => ctrl.abort();
-  const timer = setTimeout(onAbort, REQUEST_TIMEOUT_MS);
-  signal.addEventListener("abort", onAbort, { once: true });
-  return fetch(url, { signal: ctrl.signal }).finally(() => {
-    clearTimeout(timer);
-    signal.removeEventListener("abort", onAbort);
-  });
-}
-
 const retryable = (status: number) => status === 429 || status >= 500;
 
-async function request(path: string, signal: AbortSignal): Promise<Response> {
+// Faz a consulta GraphQL com tentativas, limite de tempo e mensagens de erro em português.
+async function gql<T>(query: string, variables: Record<string, unknown>, signal: AbortSignal): Promise<T> {
   let res: Response | undefined;
   let networkFailed = false;
+  const init: RequestInit = {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json" },
+    body: JSON.stringify({ query, variables }),
+  };
 
   for (let attempt = 0; attempt <= RETRIES; attempt++) {
     if (attempt > 0) await sleep(RETRY_BASE_MS * 2 ** (attempt - 1), signal);
     try {
-      res = await timedFetch(`${proxyMissing ? DIRECT : BASE}${path}`, signal);
-      // 404 que não é JSON = rota do proxy inexistente (a 404 real da Jikan vem em JSON).
-      const type = res.headers?.get?.("content-type") ?? "";
-      if (!proxyMissing && res.status === 404 && type && !type.includes("json")) {
-        proxyMissing = true;
-        res = await timedFetch(`${DIRECT}${path}`, signal);
-      }
+      res = await timedFetch(ENDPOINT, init, signal);
       networkFailed = false;
     } catch (err) {
       // Cancelamento pedido pelo app (nova busca, troca de página): não é falha de rede.
       if (signal.aborted) throw err;
-      // Proxy que não responde (travado ou fora do ar): as próximas tentativas vão direto na Jikan.
-      if (import.meta.env.MODE !== "test") proxyMissing = true;
       res = undefined;
       networkFailed = true;
       continue;
@@ -146,35 +265,144 @@ async function request(path: string, signal: AbortSignal): Promise<Response> {
           : "Não foi possível buscar agora. Tente novamente."
     );
   }
-  return res;
+  const json = await res.json();
+  if (!json.data) throw new Error("Não foi possível buscar agora. Tente novamente.");
+  return json.data as T;
+}
+
+export async function fetchAnime(
+  { query, type, genre, order }: Filters,
+  page: number,
+  signal: AbortSignal
+): Promise<SearchResponse> {
+  // Sem ordem escolhida: relevância quando há texto; popularidade quando não há.
+  const sort = order ? SORT[order] : query ? "SEARCH_MATCH" : "POPULARITY_DESC";
+  const data = await gql<{ Page: AniPage }>(
+    `query ($page: Int, $search: String, $format: [MediaFormat], $genre: [String], $sort: [MediaSort]) {
+      Page(page: $page, perPage: 24) {
+        ${PAGE_INFO}
+        media(type: ANIME, isAdult: false, search: $search, format_in: $format, genre_in: $genre, sort: $sort) { ${MEDIA} }
+      }
+    }`,
+    {
+      page,
+      search: query || undefined,
+      format: type ? FORMATS[type] : undefined,
+      genre: genre && GENRE_NAMES[genre] ? [GENRE_NAMES[genre]] : undefined,
+      sort: [sort],
+    },
+    signal
+  );
+  return toPage(data.Page);
+}
+
+const DETAIL = `
+  ${MEDIA}
+  rankings { rank type allTime }
+  externalLinks { site url type }
+  recommendations(sort: RATING_DESC, perPage: 12) {
+    nodes { rating mediaRecommendation { id title { romaji english } coverImage { large extraLarge } } }
+  }
+`;
+
+const notFound = () => new Error("Anime não encontrado.");
+
+async function fetchDetail(id: string, signal: AbortSignal): Promise<AniMedia> {
+  const n = Number(id);
+  if (!Number.isInteger(n) || n <= 0) throw notFound();
+  const data = await gql<{ Media: AniMedia | null }>(
+    `query ($id: Int) { Media(id: $id, type: ANIME) { ${DETAIL} } }`,
+    { id: n },
+    signal
+  );
+  if (!data.Media) throw notFound();
+  return data.Media;
 }
 
 export async function fetchAnimeById(id: string, signal: AbortSignal): Promise<Anime> {
-  const res = await request(`/anime/${encodeURIComponent(id)}`, signal);
-  return (await res.json()).data;
+  return toAnime(await fetchDetail(id, signal));
 }
 
 export async function fetchRecommendations(id: string, signal: AbortSignal): Promise<Recommendation[]> {
-  const res = await request(`/anime/${encodeURIComponent(id)}/recommendations`, signal);
-  return (await res.json()).data;
+  const media = await fetchDetail(id, signal);
+  return (media.recommendations?.nodes ?? [])
+    .filter((n) => n.mediaRecommendation)
+    .map((n) => {
+      const a = toAnime(n.mediaRecommendation as AniMedia);
+      return {
+        entry: { mal_id: a.mal_id, title: a.title, images: a.images },
+        votes: Math.max(0, n.rating ?? 0),
+      };
+    });
 }
 
 export async function fetchStreaming(id: string, signal: AbortSignal): Promise<StreamingLink[]> {
-  const res = await request(`/anime/${encodeURIComponent(id)}/streaming`, signal);
-  return (await res.json()).data;
+  const media = await fetchDetail(id, signal);
+  return (media.externalLinks ?? [])
+    .filter((l) => l.type === "STREAMING" && l.url)
+    .map((l) => ({ name: l.site, url: l.url as string }));
 }
 
-export async function fetchEpisodes(id: string, page: number, signal: AbortSignal): Promise<EpisodesPage> {
-  const res = await request(`/anime/${encodeURIComponent(id)}/episodes?page=${page}`, signal);
-  return res.json();
+// A AniList não traz a lista de episódios com datas: usamos os títulos de streaming quando
+// existem e, senão, uma lista numerada a partir da contagem de episódios.
+export async function fetchEpisodes(id: string, _page: number, signal: AbortSignal): Promise<EpisodesPage> {
+  const n = Number(id);
+  if (!Number.isInteger(n) || n <= 0) throw notFound();
+  const data = await gql<{ Media: { episodes: number | null; streamingEpisodes: { title: string | null }[] } | null }>(
+    `query ($id: Int) { Media(id: $id, type: ANIME) { episodes streamingEpisodes { title } } }`,
+    { id: n },
+    signal
+  );
+  if (!data.Media) throw notFound();
+  const titled = data.Media.streamingEpisodes ?? [];
+  const count = titled.length || Math.min(data.Media.episodes ?? 0, 500);
+  const list = Array.from({ length: count }, (_, i) => ({
+    mal_id: i + 1,
+    title: titled[i]?.title ?? null,
+    aired: null,
+    filler: false,
+    recap: false,
+  }));
+  return { data: list, pagination: { has_next_page: false } };
 }
 
 export async function fetchRandomAnime(signal: AbortSignal): Promise<Anime> {
-  const res = await request("/random/anime?sfw=true", signal);
-  return (await res.json()).data;
+  const page = 1 + Math.floor(Math.random() * 1500);
+  const data = await gql<{ Page: AniPage }>(
+    `query ($page: Int) {
+      Page(page: $page, perPage: 1) {
+        ${PAGE_INFO}
+        media(type: ANIME, isAdult: false, sort: POPULARITY_DESC) { ${MEDIA} }
+      }
+    }`,
+    { page },
+    signal
+  );
+  if (!data.Page.media[0]) throw notFound();
+  return toAnime(data.Page.media[0]);
+}
+
+function currentSeason(now = new Date()): { season: string; year: number } {
+  const m = now.getMonth(); // 0 = janeiro
+  const year = now.getFullYear();
+  if (m === 11) return { season: "WINTER", year: year + 1 }; // a AniList conta dezembro como inverno do ano seguinte
+  if (m <= 1) return { season: "WINTER", year };
+  if (m <= 4) return { season: "SPRING", year };
+  if (m <= 7) return { season: "SUMMER", year };
+  return { season: "FALL", year };
 }
 
 export async function fetchSeasonNow(page: number, signal: AbortSignal): Promise<SearchResponse> {
-  const res = await request(`/seasons/now?page=${page}&limit=24&sfw=true`, signal);
-  return res.json();
+  const { season, year } = currentSeason();
+  const data = await gql<{ Page: AniPage }>(
+    `query ($page: Int, $season: MediaSeason, $year: Int) {
+      Page(page: $page, perPage: 24) {
+        ${PAGE_INFO}
+        media(type: ANIME, isAdult: false, season: $season, seasonYear: $year, sort: POPULARITY_DESC) { ${MEDIA} }
+      }
+    }`,
+    { page, season, year },
+    signal
+  );
+  return toPage(data.Page);
 }

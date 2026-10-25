@@ -33,16 +33,6 @@ export default defineConfig(({ mode }) => ({
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
-            // Buscas e detalhes já vistos continuam disponíveis offline.
-            urlPattern: ({ url }) => url.pathname.startsWith("/api/jikan/"),
-            handler: "StaleWhileRevalidate",
-            options: {
-              cacheName: "jikan-api",
-              expiration: { maxEntries: 100, maxAgeSeconds: DAY * 7 },
-              cacheableResponse: { statuses: [200] },
-            },
-          },
-          {
             // Capas: respostas "opacas" (status 0) vindas de outro domínio.
             urlPattern: ({ url }) => url.hostname === "cdn.myanimelist.net",
             handler: "CacheFirst",
@@ -70,16 +60,6 @@ export default defineConfig(({ mode }) => ({
       },
     }),
   ],
-  // Em desenvolvimento, imita o proxy da Vercel.
-  server: {
-    proxy: {
-      "/api/jikan": {
-        target: "https://api.jikan.moe",
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/jikan/, ""),
-      },
-    },
-  },
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { aniPage, gqlOk, lastBody } from "../test/anilist";
 import { makeAnime } from "../test/fixtures";
 import Season from "./Season";
 
@@ -25,15 +26,11 @@ describe("Season", () => {
 
   it("lista os animes da temporada sem repetir títulos", async () => {
     const a = makeAnime(1, { title: "Alpha" });
-    fetchMock.mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ data: [a, a, makeAnime(2, { title: "Beta" })], pagination: { has_next_page: false } }),
-    });
+    fetchMock.mockResolvedValue(gqlOk(aniPage([a, a, makeAnime(2, { title: "Beta" })])));
     renderPage();
     expect(await screen.findByRole("button", { name: "Ver detalhes de Alpha" })).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Ver detalhes de/ })).toHaveLength(2);
-    expect(fetchMock.mock.calls[0][0]).toContain("/seasons/now");
+    expect(lastBody(fetchMock).variables.season).toMatch(/^(WINTER|SPRING|SUMMER|FALL)$/);
   });
 
   it("mostra erro amigável quando a API falha", async () => {
