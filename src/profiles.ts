@@ -1,5 +1,8 @@
 // Perfis locais: guardam favoritos, lista de animes e tema por pessoa, só neste navegador.
 // Não há senha nem servidor; é um jeito de várias pessoas (ou gostos) dividirem o mesmo aparelho.
+// A lista de perfis (pequena) fica no localStorage; favoritos e lista ficam em storage.ts.
+
+import { getItem, removeItem, setItem } from "./storage";
 
 export interface Profile {
   id: string;
@@ -67,12 +70,8 @@ const newId = () =>
   ).slice(0, 12);
 
 function copyKey(base: string, toId: string) {
-  try {
-    const guest = localStorage.getItem(base);
-    if (guest) localStorage.setItem(storageKey(base, toId), guest);
-  } catch {
-    /* ignora */
-  }
+  const guest = getItem(base);
+  if (guest) setItem(storageKey(base, toId), guest);
 }
 
 /** Cria o perfil e já entra nele. O primeiro perfil herda os favoritos e a lista do visitante. */
@@ -105,12 +104,8 @@ export function updateProfile(id: string, patch: Partial<Omit<Profile, "id">>) {
 }
 
 export function deleteProfile(id: string) {
-  try {
-    localStorage.removeItem(storageKey(FAVORITES_KEY, id));
-    localStorage.removeItem(storageKey(WATCHLIST_KEY, id));
-  } catch {
-    /* ignora */
-  }
+  removeItem(storageKey(FAVORITES_KEY, id));
+  removeItem(storageKey(WATCHLIST_KEY, id));
   commit({
     profiles: state.profiles.filter((p) => p.id !== id),
     activeId: state.activeId === id ? null : state.activeId,

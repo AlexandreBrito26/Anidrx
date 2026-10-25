@@ -10,7 +10,8 @@ Buscador de animes feito com React, TypeScript, Vite e Sass. Os dados vêm da AP
 - Detalhes em modal: capa, sinopse, estúdio, temporada, ranking e trailer
 - Sinopse traduzida automaticamente para português (com botão "Ver original"); gêneros, status, formato e origem também em português
 - Página própria por anime (`/anime/:id`) com link compartilhável, "Onde assistir", lista de episódios e "Parecidos com este"
-- Favoritos salvos no navegador
+- Favoritos e "Minha lista" (quero ver, assistindo, concluído) salvos no navegador, com contador de episódios vistos
+- Sequências, prequelas e outras obras relacionadas na página de cada anime, com atalho "Continuar"
 - Tema claro e escuro
 - PWA: instalável no celular/computador e com suporte offline (favoritos e capas já vistas)
 - 13 temas que mudam o site inteiro (Dia, Noite, Inverno, Halloween, Outono, Primavera, Matsuri, Natal, Ano-novo, Cyberpunk, Galáxia, Oceano e Mangá: paleta, fontes, formas, logo, favicon, textos e fundo animado) com botão para ligar/desligar os efeitos
@@ -49,6 +50,7 @@ Abra o endereço mostrado (funciona em `localhost` ou HTTPS), e o navegador ofer
 ```
 src/
   api.ts              consultas à AniList, filtros e listas de gêneros/tipos
+  storage.ts          armazenamento de favoritos e lista (IndexedDB, com alternativa em localStorage)
   pt.ts               rótulos em português (gêneros, status, formato, origem)
   translate.ts        tradução automática das sinopses (provedores públicos + cache)
   App.tsx             rotas
@@ -58,6 +60,17 @@ src/
   styles/main.scss    estilos e temas (variáveis CSS)
   test/               setup e dados de teste
 ```
+
+## Armazenamento dos dados
+Favoritos e "Minha lista" ficam no **IndexedDB** do navegador (sem servidor), por perfil:
+- Ao abrir o app, tudo é carregado para a memória; depois disso ler é instantâneo e cada alteração é gravada em seguida.
+- Quem já tinha dados no `localStorage` é migrado automaticamente: o app grava no IndexedDB, confirma e só então apaga a cópia antiga.
+- Se o IndexedDB não estiver disponível (ou falhar ao gravar), os dados continuam no `localStorage`, sem perda.
+- O app pede ao navegador armazenamento persistente (`navigator.storage.persist()`), para ele não apagar os dados quando faltar espaço.
+- Abas abertas ao mesmo tempo se mantêm sincronizadas (`BroadcastChannel`).
+- Perfis, tema e cache de tradução continuam no `localStorage` (são pequenos e precisam existir antes da tela abrir).
+
+Os dados ficam só neste navegador e neste aparelho. Para levar para outro lugar seria preciso exportar/importar ou um servidor.
 
 ## Deploy
 O projeto é uma SPA estática. Na Vercel ou na Netlify, conecte o repositório e use:

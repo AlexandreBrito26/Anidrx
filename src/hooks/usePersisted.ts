@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { storageKey } from "../profiles";
+import { getItem, setItem, subscribe } from "../storage";
 import { useProfiles } from "./useProfiles";
 
 // Cada componente que chama o hook tem a sua cópia do estado. Quando uma cópia grava, as outras
@@ -13,7 +14,8 @@ function notifyOthers(key: string, self: (() => void) | null) {
 }
 
 /**
- * Estado salvo no localStorage por perfil: cada pessoa (ou o visitante) tem a sua cópia.
+ * Estado salvo (IndexedDB, ou localStorage como alternativa; ver storage.ts) por perfil: cada
+ * pessoa (ou o visitante) tem a sua cópia.
  * `parse` recebe o valor lido (qualquer coisa, inclusive lixo) e devolve sempre um valor válido.
  * Fica sincronizado entre componentes e entre abas abertas do navegador.
  */
@@ -23,7 +25,7 @@ export function usePersisted<T>(base: string, parse: (raw: unknown) => T) {
 
   const read = useCallback((): T => {
     try {
-      return parse(JSON.parse(localStorage.getItem(key) ?? "null"));
+      return parse(JSON.parse(getItem(key) ?? "null"));
     } catch {
       return parse(null);
     }
@@ -44,17 +46,16 @@ export function usePersisted<T>(base: string, parse: (raw: unknown) => T) {
   // Outra cópia (ou outra aba) gravou esta chave: relê.
   useEffect(() => {
     const onChange = () => setState({ key, value: read() });
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === key || e.key === null) onChange();
-    };
     self.current = onChange;
     const set = listeners.get(key) ?? new Set<() => void>();
     listeners.set(key, set);
     set.add(onChange);
-    window.addEventListener("storage", onStorage);
+    const unsubscribe = subscribe((changed) => {
+      if (changed === key || changed === null) onChange();
+    });
     return () => {
       set.delete(onChange);
-      window.removeEventListener("storage", onStorage);
+      unsubscribe();
     };
   }, [key, read]);
 
@@ -70,11 +71,7 @@ export function usePersisted<T>(base: string, parse: (raw: unknown) => T) {
       dirty.current = true;
       setState((s) => {
         const next = fn(s.key === key ? s.value : read());
-        try {
-          localStorage.setItem(key, JSON.stringify(next));
-        } catch {
-          /* armazenamento indisponível */
-        }
+        setItem(key, JSON.stringify(next));
         return { key, value: next };
       });
     },
