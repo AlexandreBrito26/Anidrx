@@ -10,10 +10,16 @@ import WatchSelect from "../components/WatchSelect";
 import { genrePt, relationPt, statusPt, typePt } from "../pt";
 import ProfileMenu from "../components/ProfileMenu";
 import { useFavorites } from "../hooks/useFavorites";
+import type { Anime, AnimeDetail } from "../types";
 
 const DAY = 24 * 60 * 60 * 1000;
 
 type ShareState = "idle" | "copied" | "failed";
+
+// Favoritos e "Minha lista" guardam só o anime; as obras relacionadas são recarregadas a cada visita.
+function withoutRelated({ related: _related, ...anime }: AnimeDetail): Anime {
+  return anime;
+}
 
 function formatDate(iso: string | null) {
   if (!iso) return "";
@@ -102,12 +108,6 @@ export default function AnimePage() {
   // A sequência mais próxima (a mais antiga ainda à frente) vira o botão "Continuar".
   const nextSequel = related.find((r) => r.relation === "SEQUEL");
 
-  // Favoritos guardam só o anime; as obras relacionadas são recarregadas a cada visita.
-  function toggleFavorite() {
-    if (!data) return;
-    const { related: _related, ...anime } = data;
-    toggle(anime);
-  }
 
   return (
     <div className="page">
@@ -173,9 +173,9 @@ export default function AnimePage() {
             </p>
             <Synopsis key={data.mal_id} text={data.synopsis} />
             <AnimeFacts anime={data} />
-            <WatchSelect anime={data} />
+            <WatchSelect anime={withoutRelated(data)} />
             <div className="modal__actions">
-              <button className="btn btn--primary" onClick={toggleFavorite}>
+              <button className="btn btn--primary" onClick={() => toggle(withoutRelated(data))}>
                 {isFavorite(data.mal_id) ? "Remover dos favoritos" : "Adicionar aos favoritos"}
               </button>
               {nextSequel && (

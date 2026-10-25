@@ -142,6 +142,20 @@ describe("AnimePage", () => {
     expect(screen.queryByRole("link", { name: /Continuar/ })).toBeNull();
   });
 
+  it("não guarda as obras relacionadas em Minha lista", async () => {
+    mockApi({
+      detail: frieren,
+      relations: [{ relationType: "SEQUEL", node: { ...toMedia(makeAnime(3, { title: "Frieren 2" })), type: "ANIME" } }],
+    });
+    renderPage();
+
+    await screen.findByRole("heading", { name: "Frieren" });
+    fireEvent.change(screen.getByLabelText("Minha lista"), { target: { value: "watching" } });
+    const saved = Object.keys(localStorage).map((k) => localStorage.getItem(k) ?? "").join("");
+    expect(saved).toContain("watching");
+    expect(saved).not.toContain("related");
+  });
+
   it("não guarda as obras relacionadas nos favoritos", async () => {
     mockApi({
       detail: frieren,
