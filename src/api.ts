@@ -87,6 +87,20 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
+const REQUEST_TIMEOUT_MS = 12_000;
+
+// fetch com limite de tempo: sem isso, uma resposta que nunca chega deixa a tela carregando para sempre.
+function timedFetch(url: string, signal: AbortSignal): Promise<Response> {
+  const ctrl = new AbortController();
+  const onAbort = () => ctrl.abort();
+  const timer = setTimeout(onAbort, REQUEST_TIMEOUT_MS);
+  signal.addEventListener("abort", onAbort, { once: true });
+  return fetch(url, { signal: ctrl.signal }).finally(() => {
+    clearTimeout(timer);
+    signal.removeEventListener("abort", onAbort);
+  });
+}
+
 const retryable = (status: number) => status === 429 || status >= 500;
 
 async function request(path: string, signal: AbortSignal): Promise<Response> {
@@ -96,16 +110,19 @@ async function request(path: string, signal: AbortSignal): Promise<Response> {
   for (let attempt = 0; attempt <= RETRIES; attempt++) {
     if (attempt > 0) await sleep(RETRY_BASE_MS * 2 ** (attempt - 1), signal);
     try {
-      res = await fetch(`${proxyMissing ? DIRECT : BASE}${path}`, { signal });
+      res = await timedFetch(`${proxyMissing ? DIRECT : BASE}${path}`, signal);
       // 404 que não é JSON = rota do proxy inexistente (a 404 real da Jikan vem em JSON).
       const type = res.headers?.get?.("content-type") ?? "";
       if (!proxyMissing && res.status === 404 && type && !type.includes("json")) {
         proxyMissing = true;
-        res = await fetch(`${DIRECT}${path}`, { signal });
+        res = await timedFetch(`${DIRECT}${path}`, signal);
       }
       networkFailed = false;
     } catch (err) {
-      if ((err as Error).name === "AbortError") throw err;
+      // Cancelamento pedido pelo app (nova busca, troca de página): não é falha de rede.
+      if (signal.aborted) throw err;
+      // Proxy que não responde (travado ou fora do ar): as próximas tentativas vão direto na Jikan.
+      if (import.meta.env.MODE !== "test") proxyMissing = true;
       res = undefined;
       networkFailed = true;
       continue;
