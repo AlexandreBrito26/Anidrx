@@ -5,6 +5,8 @@ import { fetchAnimeById, fetchEpisodes, fetchRecommendations, fetchStreaming } f
 import Logo from "../components/Logo";
 import ThemePicker from "../components/ThemePicker";
 import AnimeFacts from "../components/AnimeFacts";
+import WatchSelect from "../components/WatchSelect";
+import ProfileMenu from "../components/ProfileMenu";
 import { useFavorites } from "../hooks/useFavorites";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -99,7 +101,10 @@ export default function AnimePage() {
     <div className="page">
       <div className="page__bar">
         <Link className="page__brand" to="/" aria-label="Anidrx, ir para o início"><Logo /></Link>
-        <ThemePicker />
+        <div className="page__tools">
+          <ThemePicker />
+          <ProfileMenu />
+        </div>
       </div>
 
       <button
@@ -156,6 +161,7 @@ export default function AnimePage() {
             </p>
             <p className="modal__synopsis">{data.synopsis ?? "Sem sinopse disponível."}</p>
             <AnimeFacts anime={data} />
+            <WatchSelect anime={data} />
             <div className="modal__actions">
               <button className="btn btn--primary" onClick={() => toggle(data)}>
                 {isFavorite(data.mal_id) ? "Remover dos favoritos" : "Adicionar aos favoritos"}

@@ -1,7 +1,9 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import type { Anime } from "../types";
 import AnimeFacts from "./AnimeFacts";
+import WatchSelect from "./WatchSelect";
 
 interface Props {
   anime: Anime;
@@ -31,7 +33,8 @@ export default function AnimeModal({ anime, favorite, onClose, onToggleFavorite 
 
   const title = anime.title_english ?? anime.title;
   const cover = anime.images.jpg.large_image_url || anime.images.jpg.image_url;
-  return (
+  // Portal no <body>: assim nenhuma barra fixa ou camada da página fica na frente do modal.
+  return createPortal(
     <div className="modal" onClick={onClose}>
       <div
         className="modal__panel"
@@ -66,6 +69,8 @@ export default function AnimeModal({ anime, favorite, onClose, onToggleFavorite 
 
           <AnimeFacts anime={anime} />
 
+          <WatchSelect anime={anime} />
+
           <div className="modal__actions">
             <button className="btn btn--primary" onClick={() => onToggleFavorite(anime)}>
               {favorite ? "Remover dos favoritos" : "Adicionar aos favoritos"}
@@ -84,6 +89,7 @@ export default function AnimeModal({ anime, favorite, onClose, onToggleFavorite 
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

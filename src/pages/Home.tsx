@@ -5,6 +5,7 @@ import { fetchAnime, fetchRandomAnime, GENRES, SORTS, TYPES } from "../api";
 import AnimeCard from "../components/AnimeCard";
 import Logo from "../components/Logo";
 import ThemePicker from "../components/ThemePicker";
+import ProfileMenu from "../components/ProfileMenu";
 import AnimeModal from "../components/AnimeModal";
 import SkeletonCard from "../components/SkeletonCard";
 import { useDebounce } from "../hooks/useDebounce";
@@ -138,7 +139,10 @@ export default function Home() {
       <header className="top">
         <div className="top__title">
           <h1><Logo /></h1>
-          <ThemePicker />
+          <div className="page__tools">
+            <ThemePicker />
+            <ProfileMenu />
+          </div>
         </div>
 
       </header>
@@ -178,6 +182,7 @@ export default function Home() {
           >
             ♥ Favoritos ({favorites.length})
           </button>
+          <Link className="btn" to="/lista">Minha lista</Link>
           <Link className="btn" to="/temporada">Temporada</Link>
           <button className="btn" onClick={surprise} disabled={randomState === "loading"}>
             {randomState === "loading" ? "Sorteando…" : "🎲 Surpreenda-me"}

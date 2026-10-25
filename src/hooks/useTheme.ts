@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from "react";
 
+import { rememberTheme } from "../profiles";
 import { BAR_COLOR, faviconFor, isTheme, THEMES } from "../themes";
 import type { Theme } from "../themes";
 
@@ -39,6 +40,7 @@ function setTheme(next: Theme) {
   } catch {
     /* ignora */
   }
+  rememberTheme(next); // se há um perfil ativo, o tema fica salvo nele
   listeners.forEach((l) => l());
 }
 

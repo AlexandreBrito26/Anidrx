@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { fetchSeasonNow } from "../api";
 import Logo from "../components/Logo";
 import ThemePicker from "../components/ThemePicker";
+import ProfileMenu from "../components/ProfileMenu";
 import AnimeCard from "../components/AnimeCard";
 import AnimeModal from "../components/AnimeModal";
 import SkeletonCard from "../components/SkeletonCard";
@@ -36,6 +37,7 @@ export default function Season() {
         <Link className="page__brand" to="/" aria-label="Anidrx, ir para o início"><Logo /></Link>
         <div className="page__tools">
           <ThemePicker />
+          <ProfileMenu />
           <Link className="btn btn--small" to="/">← Início</Link>
         </div>
       </div>

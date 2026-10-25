@@ -6,6 +6,7 @@ import Footer from "./components/Footer";
 import OfflineBanner from "./components/OfflineBanner";
 import AnimePage from "./pages/AnimePage";
 import Home from "./pages/Home";
+import MyList from "./pages/MyList";
 import Season from "./pages/Season";
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
       <OfflineBanner />
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/lista" element={<MyList />} />
         <Route path="/temporada" element={<Season />} />
         <Route path="/anime/:id" element={<AnimePage />} />
         <Route path="*" element={<Home />} />
