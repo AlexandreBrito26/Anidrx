@@ -1,8 +1,10 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
+import { genrePt, statusPt, typePt } from "../pt";
 import type { Anime } from "../types";
 import AnimeFacts from "./AnimeFacts";
+import Synopsis from "./Synopsis";
 import WatchSelect from "./WatchSelect";
 
 interface Props {
@@ -55,17 +57,17 @@ export default function AnimeModal({ anime, favorite, onClose, onToggleFavorite 
             <p className="modal__original">{anime.title}</p>
           )}
           <ul className="tags">
-            {anime.genres.map((g) => <li key={g.mal_id}>{g.name}</li>)}
+            {anime.genres.map((g) => <li key={g.mal_id}>{genrePt(g.name)}</li>)}
           </ul>
           <p className="modal__facts">
             {[
               anime.score ? `★ ${anime.score.toFixed(2)}` : null,
-              anime.type,
+              typePt(anime.type),
               anime.episodes ? `${anime.episodes} episódios` : null,
-              anime.status,
+              anime.status ? statusPt(anime.status) : null,
             ].filter(Boolean).join(" · ")}
           </p>
-          <p className="modal__synopsis">{anime.synopsis ?? "Sem sinopse disponível."}</p>
+          <Synopsis key={anime.mal_id} text={anime.synopsis} />
 
           <AnimeFacts anime={anime} />
 

@@ -269,8 +269,16 @@ main { max-width: 1100px; margin: 0 auto; padding: 0 1.25rem 4rem; }
   &__body h2 { font-size: 1.8rem; padding-right: 2rem; }
   &__original { margin: 0.2rem 0 0; color: var(--muted); }
   &__facts { color: var(--muted); margin: 0.75rem 0; }
-  &__synopsis { max-width: 62ch; }
+  &__synopsis { max-width: 62ch; white-space: pre-line; }
   &__actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1.25rem; }
+}
+
+/* Sinopse traduzida: aviso discreto e botão "Ver original". */
+.synopsis {
+  &__note { margin: 0.35rem 0 0; min-height: 1.2em; font-size: 0.8rem; color: var(--muted); }
+  &__btn { padding: 0; border: 0; background: none; color: inherit; font: inherit;
+    text-decoration: underline; cursor: pointer;
+    &:hover { color: var(--ink); } }
 }
 
 .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; list-style: none; padding: 0; margin: 0.75rem 0 0;

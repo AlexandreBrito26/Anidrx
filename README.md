@@ -8,6 +8,7 @@ Buscador de animes feito com React, TypeScript, Vite e Sass. Os dados vêm da AP
 - Busca, filtros e página na URL (link compartilhável): `/?q=frieren&genre=10&page=2`
 - Cache de buscas com React Query
 - Detalhes em modal: capa, sinopse, estúdio, temporada, ranking e trailer
+- Sinopse traduzida automaticamente para português (com botão "Ver original"); gêneros, status, formato e origem também em português
 - Página própria por anime (`/anime/:id`) com link compartilhável, "Onde assistir", lista de episódios e "Parecidos com este"
 - Favoritos salvos no navegador
 - Tema claro e escuro
@@ -48,6 +49,8 @@ Abra o endereço mostrado (funciona em `localhost` ou HTTPS), e o navegador ofer
 ```
 src/
   api.ts              consultas à AniList, filtros e listas de gêneros/tipos
+  pt.ts               rótulos em português (gêneros, status, formato, origem)
+  translate.ts        tradução automática das sinopses (provedores públicos + cache)
   App.tsx             rotas
   pages/              Home (busca) e AnimePage (detalhe + parecidos)
   components/         AnimeCard, AnimeModal, SkeletonCard

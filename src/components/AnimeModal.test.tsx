@@ -75,6 +75,32 @@ describe("AnimeModal", () => {
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
+  it("renderiza no <body>, fora da página, para nenhuma barra fixa ficar na frente", () => {
+    const { container } = render(
+      <AnimeModal anime={full} favorite={false} onClose={() => {}} onToggleFavorite={() => {}} />,
+      { wrapper: MemoryRouter }
+    );
+    const overlay = screen.getByRole("dialog").parentElement!;
+    expect(container.contains(overlay)).toBe(false);
+    expect(overlay.parentElement).toBe(document.body);
+  });
+
+  it("mostra gêneros, formato e status em português", () => {
+    setup(
+      makeAnime(2, {
+        type: "Movie",
+        status: "Currently Airing",
+        genres: [
+          { mal_id: 0, name: "Slice of Life" },
+          { mal_id: 1, name: "Sci-Fi" },
+        ],
+      })
+    );
+    expect(screen.getByText("Cotidiano")).toBeInTheDocument();
+    expect(screen.getByText("Ficção científica")).toBeInTheDocument();
+    expect(screen.getByText(/Filme · 12 episódios · Em exibição/)).toBeInTheDocument();
+  });
+
   it("trava a rolagem da página enquanto aberto e libera ao fechar", () => {
     const onClose = vi.fn();
     const { unmount } = render(

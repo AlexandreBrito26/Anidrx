@@ -5,7 +5,9 @@ import { fetchAnimeById, fetchEpisodes, fetchRecommendations, fetchStreaming } f
 import Logo from "../components/Logo";
 import ThemePicker from "../components/ThemePicker";
 import AnimeFacts from "../components/AnimeFacts";
+import Synopsis from "../components/Synopsis";
 import WatchSelect from "../components/WatchSelect";
+import { genrePt, statusPt, typePt } from "../pt";
 import ProfileMenu from "../components/ProfileMenu";
 import { useFavorites } from "../hooks/useFavorites";
 
@@ -149,17 +151,17 @@ export default function AnimePage() {
               <p className="modal__original">{data.title}</p>
             )}
             <ul className="tags">
-              {data.genres.map((g) => <li key={g.mal_id}>{g.name}</li>)}
+              {data.genres.map((g) => <li key={g.mal_id}>{genrePt(g.name)}</li>)}
             </ul>
             <p className="modal__facts">
               {[
                 data.score ? `★ ${data.score.toFixed(2)}` : null,
-                data.type,
+                typePt(data.type),
                 data.episodes ? `${data.episodes} episódios` : null,
-                data.status,
+                data.status ? statusPt(data.status) : null,
               ].filter(Boolean).join(" · ")}
             </p>
-            <p className="modal__synopsis">{data.synopsis ?? "Sem sinopse disponível."}</p>
+            <Synopsis key={data.mal_id} text={data.synopsis} />
             <AnimeFacts anime={data} />
             <WatchSelect anime={data} />
             <div className="modal__actions">

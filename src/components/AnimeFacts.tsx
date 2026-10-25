@@ -1,3 +1,4 @@
+import { durationPt, sourcePt } from "../pt";
 import type { Anime } from "../types";
 
 const SEASONS: Record<string, string> = {
@@ -15,8 +16,8 @@ export default function AnimeFacts({ anime }: { anime: Anime }) {
   const facts: [string, string | null | undefined][] = [
     ["Estúdio", anime.studios?.map((s) => s.name).join(", ")],
     ["Temporada", season],
-    ["Origem", anime.source],
-    ["Duração", anime.duration],
+    ["Origem", sourcePt(anime.source)],
+    ["Duração", durationPt(anime.duration)],
     ["Classificação", anime.rating],
     ["Ranking", anime.rank ? `#${anime.rank}` : null],
     ["Popularidade", anime.popularity ? `#${anime.popularity}` : null],

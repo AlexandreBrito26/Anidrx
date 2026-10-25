@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { typePt } from "../pt";
 import type { Anime } from "../types";
 
 interface Props {
@@ -26,7 +27,7 @@ export default function AnimeCard({ anime, favorite, onOpen, onToggleFavorite }:
         )}
         <span className="card__title">{title}</span>
         <span className="card__meta">
-          {[anime.type, anime.year, anime.episodes ? `${anime.episodes} ep.` : null]
+          {[typePt(anime.type), anime.year, anime.episodes ? `${anime.episodes} ep.` : null]
             .filter(Boolean)
             .join(" · ")}
         </span>
