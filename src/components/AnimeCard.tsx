@@ -7,9 +7,10 @@ interface Props {
   favorite: boolean;
   onOpen: (anime: Anime) => void;
   onToggleFavorite: (anime: Anime) => void;
+  note?: string; // linha extra de destaque (ex.: progresso "3/12 ep. vistos")
 }
 
-export default function AnimeCard({ anime, favorite, onOpen, onToggleFavorite }: Props) {
+export default function AnimeCard({ anime, favorite, onOpen, onToggleFavorite, note }: Props) {
   const [broken, setBroken] = useState(false);
   const title = anime.title_english ?? anime.title;
   const src = anime.images.jpg.large_image_url || anime.images.jpg.image_url;
@@ -31,6 +32,7 @@ export default function AnimeCard({ anime, favorite, onOpen, onToggleFavorite }:
             .filter(Boolean)
             .join(" · ")}
         </span>
+        {note && <span className="card__note">{note}</span>}
       </button>
       <button
         className={`card__fav${favorite ? " is-on" : ""}`}

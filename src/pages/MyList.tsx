@@ -55,6 +55,11 @@ export default function MyList() {
               favorite={isFavorite(e.anime.mal_id)}
               onOpen={setSelected}
               onToggleFavorite={toggle}
+              note={
+                e.status === "watching" && e.progress
+                  ? `${e.progress}${e.anime.episodes ? `/${e.anime.episodes}` : ""} ep. vistos`
+                  : undefined
+              }
             />
           ))}
         </ul>

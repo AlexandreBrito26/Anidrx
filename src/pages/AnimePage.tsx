@@ -7,6 +7,7 @@ import ThemePicker from "../components/ThemePicker";
 import AnimeFacts from "../components/AnimeFacts";
 import Synopsis from "../components/Synopsis";
 import WatchSelect from "../components/WatchSelect";
+import EpisodeProgress from "../components/EpisodeProgress";
 import { genrePt, relationPt, statusPt, typePt } from "../pt";
 import ProfileMenu from "../components/ProfileMenu";
 import { useFavorites } from "../hooks/useFavorites";
@@ -174,6 +175,7 @@ export default function AnimePage() {
             <Synopsis key={data.mal_id} text={data.synopsis} />
             <AnimeFacts anime={data} />
             <WatchSelect anime={withoutRelated(data)} />
+            {data.type !== "Movie" && <EpisodeProgress anime={withoutRelated(data)} />}
             <div className="modal__actions">
               <button className="btn btn--primary" onClick={() => toggle(withoutRelated(data))}>
                 {isFavorite(data.mal_id) ? "Remover dos favoritos" : "Adicionar aos favoritos"}

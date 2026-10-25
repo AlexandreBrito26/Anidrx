@@ -142,6 +142,30 @@ describe("AnimePage", () => {
     expect(screen.queryByRole("link", { name: /Continuar/ })).toBeNull();
   });
 
+  it("conta os episódios vistos e põe o anime em Assistindo", async () => {
+    mockApi({ detail: makeAnime(1, { title: "Frieren", episodes: 12 }) });
+    renderPage();
+
+    await screen.findByRole("heading", { name: "Frieren" });
+    fireEvent.click(screen.getByRole("button", { name: "Mais um episódio" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mais um episódio" }));
+
+    expect(screen.getByLabelText("Quantidade de episódios vistos")).toHaveValue(2);
+    expect(screen.getByText("de 12")).toBeInTheDocument();
+    expect(screen.getByLabelText("Minha lista")).toHaveValue("watching");
+
+    fireEvent.click(screen.getByRole("button", { name: "Menos um episódio" }));
+    expect(screen.getByLabelText("Quantidade de episódios vistos")).toHaveValue(1);
+  });
+
+  it("não mostra o contador de episódios para filmes", async () => {
+    mockApi({ detail: makeAnime(1, { title: "Filme X", type: "Movie" }) });
+    renderPage();
+
+    await screen.findByRole("heading", { name: "Filme X" });
+    expect(screen.queryByRole("group", { name: "Episódios assistidos" })).toBeNull();
+  });
+
   it("não guarda as obras relacionadas em Minha lista", async () => {
     mockApi({
       detail: frieren,
