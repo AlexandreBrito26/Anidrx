@@ -14,12 +14,14 @@ function mockApi({
   recs = [],
   streaming = [],
   episodes = [],
+  relations = [],
   status = 200,
 }: {
   detail?: Anime;
   recs?: Recommendation[];
   streaming?: StreamingLink[];
   episodes?: Episode[];
+  relations?: { relationType: string; node: Record<string, unknown> }[];
   status?: number;
 }) {
   fetchMock.mockImplementation(async (_url: string, init: RequestInit) => {
@@ -31,6 +33,7 @@ function mockApi({
     return gqlOk({
       Media: toMedia(detail as Anime, {
         externalLinks: streaming.map((l) => ({ site: l.name, url: l.url, type: "STREAMING" })),
+        relations: { edges: relations },
         recommendations: {
           nodes: recs.map((r) => ({
             rating: r.votes,
@@ -108,6 +111,49 @@ describe("AnimePage", () => {
 
     await screen.findByRole("heading", { name: "Frieren" });
     expect(screen.queryByText("Parecidos com este")).toBeNull();
+  });
+
+  it("mostra sequências e relacionados, com atalho para continuar", async () => {
+    mockApi({
+      detail: frieren,
+      relations: [
+        { relationType: "SPIN_OFF", node: { ...toMedia(makeAnime(4, { title: "Extra", year: 2024 })), type: "ANIME" } },
+        { relationType: "SEQUEL", node: { ...toMedia(makeAnime(3, { title: "Frieren 2", year: 2026 })), type: "ANIME" } },
+        { relationType: "SEQUEL", node: { ...toMedia(makeAnime(2, { title: "Frieren 1.5", year: 2025 })), type: "ANIME" } },
+        { relationType: "ADAPTATION", node: { ...toMedia(makeAnime(9, { title: "Frieren (mangá)" })), type: "MANGA" } },
+      ],
+    });
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: "Sequências e relacionados" })).toBeInTheDocument();
+    // Mangá fica de fora; sequências vêm antes do spin-off e da mais antiga para a mais nova.
+    const links = screen.getAllByRole("link").filter((l) => l.getAttribute("href")?.startsWith("/anime/"));
+    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/anime/2", "/anime/2", "/anime/3", "/anime/4"]);
+    expect(screen.queryByText("Frieren (mangá)")).toBeNull();
+    expect(screen.getByRole("link", { name: "Continuar: Frieren 1.5 →" })).toHaveAttribute("href", "/anime/2");
+  });
+
+  it("esconde a seção e o atalho quando não há sequências nem relacionados", async () => {
+    mockApi({ detail: frieren, relations: [] });
+    renderPage();
+
+    await screen.findByRole("heading", { name: "Frieren" });
+    expect(screen.queryByText("Sequências e relacionados")).toBeNull();
+    expect(screen.queryByRole("link", { name: /Continuar/ })).toBeNull();
+  });
+
+  it("não guarda as obras relacionadas nos favoritos", async () => {
+    mockApi({
+      detail: frieren,
+      relations: [{ relationType: "SEQUEL", node: { ...toMedia(makeAnime(3, { title: "Frieren 2" })), type: "ANIME" } }],
+    });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Adicionar aos favoritos" }));
+    expect(localStorage.length).toBeGreaterThan(0);
+    const saved = Object.keys(localStorage).map((k) => localStorage.getItem(k) ?? "").join("");
+    expect(saved).toContain("Frieren");
+    expect(saved).not.toContain("related");
   });
 
   it("mostra erro e um caminho de volta quando o anime não existe", async () => {

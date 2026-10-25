@@ -57,7 +57,23 @@ const SOURCES: Record<string, string> = {
   Other: "Outro",
 };
 
+const RELATIONS: Record<string, string> = {
+  PREQUEL: "Prequela",
+  SEQUEL: "Sequência",
+  PARENT: "Obra principal",
+  SIDE_STORY: "História paralela",
+  SPIN_OFF: "Spin-off",
+  ALTERNATIVE: "Versão alternativa",
+  SUMMARY: "Resumo",
+  COMPILATION: "Compilação",
+  CONTAINS: "Contém",
+  CHARACTER: "Mesmos personagens",
+  OTHER: "Relacionado",
+};
+
 export const genrePt = (name: string): string => GENRES[name] ?? name;
+
+export const relationPt = (relation: string): string => RELATIONS[relation] ?? relation;
 
 export const statusPt = (status: string): string => STATUSES[status] ?? status;
 

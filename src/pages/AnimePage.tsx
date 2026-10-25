@@ -7,7 +7,7 @@ import ThemePicker from "../components/ThemePicker";
 import AnimeFacts from "../components/AnimeFacts";
 import Synopsis from "../components/Synopsis";
 import WatchSelect from "../components/WatchSelect";
-import { genrePt, statusPt, typePt } from "../pt";
+import { genrePt, relationPt, statusPt, typePt } from "../pt";
 import ProfileMenu from "../components/ProfileMenu";
 import { useFavorites } from "../hooks/useFavorites";
 
@@ -98,6 +98,16 @@ export default function AnimePage() {
 
   const similar = (recs.data ?? []).slice(0, 6);
   const streams = streaming.data ?? [];
+  const related = data?.related ?? [];
+  // A sequência mais próxima (a mais antiga ainda à frente) vira o botão "Continuar".
+  const nextSequel = related.find((r) => r.relation === "SEQUEL");
+
+  // Favoritos guardam só o anime; as obras relacionadas são recarregadas a cada visita.
+  function toggleFavorite() {
+    if (!data) return;
+    const { related: _related, ...anime } = data;
+    toggle(anime);
+  }
 
   return (
     <div className="page">
@@ -165,9 +175,14 @@ export default function AnimePage() {
             <AnimeFacts anime={data} />
             <WatchSelect anime={data} />
             <div className="modal__actions">
-              <button className="btn btn--primary" onClick={() => toggle(data)}>
+              <button className="btn btn--primary" onClick={toggleFavorite}>
                 {isFavorite(data.mal_id) ? "Remover dos favoritos" : "Adicionar aos favoritos"}
               </button>
+              {nextSequel && (
+                <Link className="btn" to={`/anime/${nextSequel.entry.mal_id}`}>
+                  Continuar: {nextSequel.entry.title} →
+                </Link>
+              )}
               <button className="btn" onClick={share}>
                 {shareState === "copied" ? "Link copiado!" : shareState === "failed" ? "Não foi possível copiar" : "Compartilhar"}
               </button>
@@ -191,6 +206,31 @@ export default function AnimePage() {
             )}
           </div>
         </article>
+      )}
+
+      {related.length > 0 && (
+        <section className="recs" aria-labelledby="related-title">
+          <h2 id="related-title">Sequências e relacionados</h2>
+          <ul className="recs__list">
+            {related.map(({ relation, entry }) => (
+              <li key={entry.mal_id}>
+                <Link className="rec" to={`/anime/${entry.mal_id}`}>
+                  <img
+                    src={entry.images.jpg.large_image_url || entry.images.jpg.image_url}
+                    alt=""
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                  />
+                  <span className="rec__rel">{relationPt(relation)}</span>
+                  <span>{entry.title}</span>
+                  <span className="rec__meta">
+                    {[typePt(entry.type), entry.year].filter(Boolean).join(" · ")}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {data && data.type !== "Movie" && (

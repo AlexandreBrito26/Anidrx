@@ -381,7 +381,10 @@ main { max-width: 1100px; margin: 0 auto; padding: 0 1.25rem 4rem; }
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); } }
 .rec { display: flex; flex-direction: column; gap: 0.5rem; color: inherit; text-decoration: none; font-weight: 500; font-size: 0.9rem; line-height: 1.25;
   img { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: $r; background: var(--line); transition: transform 0.15s; }
-  &:hover img { transform: translateY(-4px); } }
+  &:hover img { transform: translateY(-4px); }
+  &__rel { align-self: flex-start; padding: 0.05rem 0.5rem; border-radius: var(--pill);
+    background: var(--tag-bg); color: var(--tag-text); font-size: 0.75rem; font-weight: 500; }
+  &__meta { color: var(--muted); font-size: 0.8rem; font-weight: 400; } }
 
 /* ---------- Onde assistir ---------- */
 a.chip { display: inline-block; color: inherit; text-decoration: none; }

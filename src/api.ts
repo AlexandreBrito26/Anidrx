@@ -1,4 +1,4 @@
-import type { Anime, EpisodesPage, Recommendation, SearchResponse, StreamingLink } from "./types";
+import type { Anime, AnimeDetail, EpisodesPage, Recommendation, RelatedAnime, SearchResponse, StreamingLink } from "./types";
 
 export interface Filters {
   query: string;
@@ -102,6 +102,7 @@ const PAGE_INFO = "pageInfo { currentPage hasNextPage total }";
 
 interface AniMedia {
   id: number;
+  type?: string | null;
   siteUrl: string | null;
   format: string | null;
   episodes: number | null;
@@ -121,6 +122,9 @@ interface AniMedia {
   externalLinks?: { site: string; url: string | null; type: string }[] | null;
   recommendations?: {
     nodes: { rating: number | null; mediaRecommendation: AniMedia | null }[];
+  } | null;
+  relations?: {
+    edges: { relationType: string; node: AniMedia | null }[];
   } | null;
 }
 
@@ -303,7 +307,61 @@ const DETAIL = `
   recommendations(sort: RATING_DESC, perPage: 12) {
     nodes { rating mediaRecommendation { id title { romaji english } coverImage { large extraLarge } } }
   }
+  relations {
+    edges {
+      relationType(version: 2)
+      node { id type format status seasonYear title { romaji english } coverImage { large extraLarge } }
+    }
+  }
 `;
+
+// Quanto menor, mais acima aparece na seção de relacionados (sequência e prequela primeiro).
+const RELATION_ORDER = [
+  "SEQUEL",
+  "PREQUEL",
+  "PARENT",
+  "SIDE_STORY",
+  "SPIN_OFF",
+  "ALTERNATIVE",
+  "SUMMARY",
+  "COMPILATION",
+  "CONTAINS",
+  "CHARACTER",
+  "OTHER",
+];
+const relationRank = (r: string) => {
+  const i = RELATION_ORDER.indexOf(r);
+  return i === -1 ? RELATION_ORDER.length : i;
+};
+
+// Só obras de anime (a AniList também liga mangá e novel), sem repetir a mesma obra,
+// agrupadas por tipo de relação e, dentro delas, da mais antiga para a mais nova.
+function toRelated(m: AniMedia): RelatedAnime[] {
+  const seen = new Set<number>();
+  const list: RelatedAnime[] = [];
+  for (const edge of m.relations?.edges ?? []) {
+    const node = edge.node;
+    if (!node || node.type !== "ANIME" || seen.has(node.id)) continue;
+    seen.add(node.id);
+    const a = toAnime(node);
+    list.push({
+      relation: edge.relationType,
+      entry: {
+        mal_id: a.mal_id,
+        title: a.title_english ?? a.title,
+        images: a.images,
+        type: a.type,
+        year: a.year,
+        status: a.status,
+      },
+    });
+  }
+  return list.sort(
+    (x, y) =>
+      relationRank(x.relation) - relationRank(y.relation) ||
+      (x.entry.year ?? Infinity) - (y.entry.year ?? Infinity)
+  );
+}
 
 const notFound = () => new Error("Anime não encontrado.");
 
@@ -319,8 +377,9 @@ async function fetchDetail(id: string, signal: AbortSignal): Promise<AniMedia> {
   return data.Media;
 }
 
-export async function fetchAnimeById(id: string, signal: AbortSignal): Promise<Anime> {
-  return toAnime(await fetchDetail(id, signal));
+export async function fetchAnimeById(id: string, signal: AbortSignal): Promise<AnimeDetail> {
+  const media = await fetchDetail(id, signal);
+  return { ...toAnime(media), related: toRelated(media) };
 }
 
 export async function fetchRecommendations(id: string, signal: AbortSignal): Promise<Recommendation[]> {
