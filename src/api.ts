@@ -2,6 +2,10 @@ import type { Anime, EpisodesPage, Recommendation, SearchResponse, StreamingLink
 
 // Passa pelo proxy da Vercel (api/jikan), que consulta https://api.jikan.moe/v4.
 const BASE = "/api/jikan/v4";
+// Plano B: se o proxy não existir no deploy (a Vercel responde 404 em HTML), consulta a
+// Jikan direto; ela aceita CORS. Depois da primeira falha, o app já nem tenta o proxy.
+const DIRECT = "https://api.jikan.moe/v4";
+let proxyMissing = false;
 
 export interface Filters {
   query: string;
@@ -92,7 +96,13 @@ async function request(path: string, signal: AbortSignal): Promise<Response> {
   for (let attempt = 0; attempt <= RETRIES; attempt++) {
     if (attempt > 0) await sleep(RETRY_BASE_MS * 2 ** (attempt - 1), signal);
     try {
-      res = await fetch(`${BASE}${path}`, { signal });
+      res = await fetch(`${proxyMissing ? DIRECT : BASE}${path}`, { signal });
+      // 404 que não é JSON = rota do proxy inexistente (a 404 real da Jikan vem em JSON).
+      const type = res.headers?.get?.("content-type") ?? "";
+      if (!proxyMissing && res.status === 404 && type && !type.includes("json")) {
+        proxyMissing = true;
+        res = await fetch(`${DIRECT}${path}`, { signal });
+      }
       networkFailed = false;
     } catch (err) {
       if ((err as Error).name === "AbortError") throw err;
